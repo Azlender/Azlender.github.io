@@ -73,6 +73,7 @@
     </label>
     <label><input type="checkbox" id="boots" checked> Сапоги обязательно</label>
     <label><input type="checkbox" id="bareBoots"> Голый сапог</label>
+    <label><input type="checkbox" id="aghs" checked> Шард + аганим</label>
     <label>Скиллбилд:
       <select id="mode">
         <option value="logic">Логичный</option>
@@ -104,7 +105,7 @@
 <script>
 const CDN = 'https://cdn.cloudflare.steamstatic.com';
 const API = 'https://api.opendota.com/api/constants/';
-const CACHE_KEY = 'shapito_data_v2';
+const CACHE_KEY = 'shapito_data_v3';
 const CACHE_TTL = 3 * 24 * 3600 * 1000;
 const SKILL_LEVELS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,20,25];
 const ABILITY_LEVELS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18];
@@ -155,7 +156,8 @@ async function loadData(force) {
   const its = Object.entries(items)
     .filter(([k, v]) => (BOOTS.includes(k) || (v.created && v.cost >= 1000)) && v.dname && !/recipe/.test(k) && !ITEM_BLACKLIST.test(k))
     .map(([k, v]) => ({ key:k, name:v.dname, cost:v.cost, img:img(v.img), boots:BOOTS.includes(k) }));
-  const d = { heroes:hs.sort((a, b) => a.name.localeCompare(b.name)), items:its };
+  const extras = ['aghanims_shard','ultimate_scepter_2'].filter(k => items[k]).map(k => ({ key:k, name:items[k].dname, cost:items[k].cost, img:img(items[k].img) }));
+  const d = { heroes:hs.sort((a, b) => a.name.localeCompare(b.name)), items:its, extras };
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t:Date.now(), d })); } catch {}
   return d;
 }
@@ -219,7 +221,7 @@ function rollItems(hero) {
   const profile = heroProfile(hero);
   const wf = logic ? i => itemWeight(i, profile) : () => 1;
   const conflicts = (a, b) => a === b || (a.boots && b.boots) || (logic && FAMILIES.some(f => f.includes(a.key) && f.includes(b.key)));
-  let pool = DATA.items.filter(i => i.key !== 'boots' || $('bareBoots').checked);
+  let pool = DATA.items.filter(i => (i.key !== 'boots' || $('bareBoots').checked) && (i.key !== 'ultimate_scepter' || !$('aghs').checked));
   if (logic) pool = pool.filter(i => !(hero.type === 'Melee' ? RANGED_ONLY : MELEE_ONLY).includes(i.key));
   const res = [];
   if ($('boots').checked) res.push(weightedPick(pool.filter(i => i.boots), wf));
@@ -318,7 +320,9 @@ function render() {
     const sl = slots.find(x => x.id === st.s);
     return `<div class="s" title="${sl.name}"><img src="${sl.img}"><span>${st.L}</span></div>`;
   }).join('');
-  const total = state.items.reduce((s, i) => s + i.cost, 0);
+  const extras = $('aghs').checked ? DATA.extras || [] : [];
+  const total = [...state.items, ...extras].reduce((s, i) => s + i.cost, 0);
+  const extrasHtml = extras.length ? `<div class="items" style="grid-template-columns:repeat(6,1fr);margin-top:14px">${extras.map(i => `<div class="item"><img src="${i.img}"><b>${i.name}</b>${i.cost}</div>`).join('')}</div>` : '';
 
   $('app').innerHTML = `
     <div class="card"><h2>Герой <button id="rerollHero">Перекрутить всё</button></h2>
@@ -330,6 +334,7 @@ function render() {
     </div>
     <div class="card"><h2>6 предметов · ${total.toLocaleString('ru')} золота <button id="rerollItems">Перекрутить предметы</button></h2>
       <div class="items">${state.items.map(i => `<div class="item"><img src="${i.img}"><b>${i.name}</b>${i.cost}</div>`).join('')}</div>
+      ${extrasHtml}
     </div>
     <div class="card"><h2>Скиллбилд <button id="rerollSkills">Перекрутить скиллы</button></h2>
       <div class="grid"><table><tr><th></th>${head}</tr>${rows}${talRow}</table></div>
@@ -356,7 +361,7 @@ async function init(force) {
 
 $('rollAll').onclick = rollHero;
 $('refresh').onclick = () => init(true);
-$('itemMode').onchange = $('bareBoots').onchange = $('boots').onchange = () => { if (state.hero) { state.items = rollItems(state.hero); render(); } };
+$('itemMode').onchange = $('bareBoots').onchange = $('aghs').onchange = $('boots').onchange = () => { if (state.hero) { state.items = rollItems(state.hero); render(); } };
 $('mode').onchange = () => { if (state.hero) { state.build = rollBuild(state.hero, $('mode').value); render(); } };
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && DATA && !['INPUT','SELECT','BUTTON'].includes(document.activeElement.tagName)) { e.preventDefault(); rollHero(); }
