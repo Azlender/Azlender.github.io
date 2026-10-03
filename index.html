@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Шапито — рандом Dota 2</title>
+<style>
+  :root { --bg:#0e0f14; --card:#171a22; --line:#262b38; --text:#e7e9ee; --muted:#8b92a5; --acc:#e0483d; --acc2:#f2b134; --str:#e2533b; --agi:#3fbf5f; --int:#3d9bf2; --all:#c89cf2; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(circle at 50% -20%, #2a1416 0, var(--bg) 60%); color:var(--text); font-family:Segoe UI, Roboto, sans-serif; min-height:100vh; }
+  .wrap { max-width:1100px; margin:0 auto; padding:24px 16px 60px; }
+  h1 { margin:0; font-size:28px; letter-spacing:2px; }
+  h1 span { color:var(--acc); }
+  .sub { color:var(--muted); margin:4px 0 20px; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:20px; }
+  button { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px 16px; font-size:14px; cursor:pointer; transition:.15s; }
+  button:hover { border-color:var(--acc); }
+  button.main { background:linear-gradient(135deg, var(--acc), #b3261e); border:none; font-weight:700; font-size:16px; padding:12px 24px; }
+  button:disabled { opacity:.5; cursor:default; }
+  label { color:var(--muted); font-size:14px; display:flex; align-items:center; gap:6px; cursor:pointer; }
+  select { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .card h2 { margin:0 0 14px; font-size:13px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
+  .card h2 button { padding:5px 10px; font-size:12px; letter-spacing:0; text-transform:none; }
+  .hero { display:flex; gap:18px; align-items:center; }
+  .hero img { width:200px; border-radius:10px; border:2px solid var(--line); }
+  .hero .name { font-size:30px; font-weight:800; }
+  .hero .meta { color:var(--muted); margin-top:6px; }
+  .attr { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; margin-right:6px; color:#000; }
+  .items { display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; }
+  .item { text-align:center; font-size:12px; color:var(--muted); }
+  .item img { width:100%; border-radius:8px; border:1px solid var(--line); display:block; margin-bottom:6px; }
+  .item b { display:block; color:var(--text); font-size:13px; }
+  .grid { overflow-x:auto; }
+  table { border-collapse:separate; border-spacing:3px; }
+  td, th { text-align:center; font-size:12px; }
+  th { color:var(--muted); font-weight:400; width:30px; }
+  td.ab { text-align:left; white-space:nowrap; padding-right:8px; }
+  td.ab img { width:36px; height:36px; border-radius:6px; vertical-align:middle; margin-right:8px; }
+  td.cell { width:30px; height:36px; background:#10121a; border-radius:4px; }
+  td.on { background:linear-gradient(180deg, var(--acc2), #c47f0c); color:#000; font-weight:800; font-size:14px; }
+  td.on.ult { background:linear-gradient(180deg, #b98cf5, #7346c4); }
+  td.on.tal { background:linear-gradient(180deg, #5fd4c4, #238f80); }
+  .talents { display:grid; gap:6px; margin-top:16px; }
+  .trow { display:grid; grid-template-columns:1fr 50px 1fr; gap:6px; align-items:center; }
+  .trow div { padding:8px 10px; border-radius:6px; background:#10121a; font-size:13px; color:var(--muted); border:1px solid transparent; }
+  .trow div:first-child { text-align:right; }
+  .trow .lvl { text-align:center !important; color:var(--acc2); font-weight:800; background:none; }
+  .trow .pick { color:var(--text); border-color:#2fa999; background:#123331; }
+  .order { display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
+  .order .s { position:relative; }
+  .order .s img { width:40px; height:40px; border-radius:6px; display:block; }
+  .order .s .t { width:40px; height:40px; border-radius:6px; background:#123331; display:flex; align-items:center; justify-content:center; font-size:11px; color:#5fd4c4; font-weight:700; }
+  .order .s span { position:absolute; bottom:-2px; right:-2px; background:#000; color:var(--acc2); font-size:10px; padding:0 4px; border-radius:4px; }
+  .status { color:var(--muted); padding:40px; text-align:center; }
+  .empty { color:var(--muted); text-align:center; padding:30px; }
+  kbd { background:#000; border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-size:12px; }
+  @media (max-width:700px) { .items { grid-template-columns:repeat(3,1fr); } .hero { flex-direction:column; align-items:flex-start; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ШАПИТО <span>DOTA</span></h1>
+  <div class="sub">Случайный герой, 6 предметов и скиллбилд. <kbd>Space</kbd> — рандом всего.</div>
+
+  <div class="bar">
+    <button class="main" id="rollAll" disabled>⚡ РАНДОМНУТЬ ВСЁ</button>
+    <label>Предметы:
+      <select id="itemMode">
+        <option value="logic">Логичные</option>
+        <option value="chaos">Хаос</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="boots" checked> Сапоги обязательно</label>
+    <label>Скиллбилд:
+      <select id="mode">
+        <option value="logic">Логичный</option>
+        <option value="chaos">Хаос</option>
+      </select>
+    </label>
+    <button id="refresh" title="Перекачать данные из OpenDota">↻ Обновить данные</button>
+  </div>
+
+  <div id="app"><div class="status">Загружаем данные…</div></div>
+</div>
+
+<script>
+const CDN = 'https://cdn.cloudflare.steamstatic.com';
+const API = 'https://api.opendota.com/api/constants/';
+const CACHE_KEY = 'shapito_data_v1';
+const CACHE_TTL = 3 * 24 * 3600 * 1000;
+const SKILL_LEVELS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,20,25];
+const TALENT_LEVELS = [10,15,20,25];
+const ATTR = { str:['Сила','var(--str)'], agi:['Ловкость','var(--agi)'], int:['Интеллект','var(--int)'], all:['Универсал','var(--all)'] };
+const BOOTS = ['travel_boots','phase_boots','power_treads','arcane_boots','guardian_greaves','boots_of_bearing','tranquil_boots'];
+const ITEM_BLACKLIST = /^(travel_boots_2|dagon_[2-5]|necronomicon.*|ultimate_scepter_2|trident|diffusal_blade_2|pers|oblivion_staff|soul_booster|helm_of_the_dominator|vanguard|falcon_blade|orb_of_corrosion|pavise)$/;
+
+let DATA = null;
+const state = { hero:null, items:[], build:null };
+
+const $ = id => document.getElementById(id);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const img = p => p ? CDN + p.split('?')[0] : '';
+const isHidden = (key, a) => !a || /generic_hidden|_empty/.test(key) || [].concat(a.behavior || []).join(',').includes('Hidden');
+const cleanTalent = s => (s || '').replace(/\{s:[^}]+\}/g, '').replace(/\s+/g, ' ').replace(/^\+\s*%?\s*/, '+ ').trim();
+
+async function loadData(force) {
+  if (!force) {
+    try {
+      const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+      if (c && Date.now() - c.t < CACHE_TTL) return c.d;
+    } catch {}
+  }
+  const [heroes, heroAb, abilities, items] = await Promise.all(
+    ['heroes','hero_abilities','abilities','items'].map(n => fetch(API + n).then(r => { if (!r.ok) throw new Error(n); return r.json(); }))
+  );
+  const hs = [];
+  for (const h of Object.values(heroes)) {
+    const ha = heroAb[h.name];
+    if (!ha) continue;
+    const ab = ha.abilities;
+    const mk = k => ({ key:k, name:abilities[k]?.dname || k, img:img(abilities[k]?.img) });
+    const invoker = h.name === 'npc_dota_hero_invoker';
+    let ult = null, basics = [];
+    if (invoker) {
+      basics = ab.slice(0, 3).map(mk);
+    } else {
+      let ui = ab.findIndex((k, i) => i >= 5 && !isHidden(k, abilities[k]));
+      if (ui >= 0) ult = mk(ab[ui]);
+      basics = ab.slice(0, 5).filter((k, i) => i !== ui && !isHidden(k, abilities[k])).slice(0, 3).map(mk);
+    }
+    const talents = [[],[],[],[]];
+    for (const t of ha.talents) talents[t.level - 1]?.push(cleanTalent(abilities[t.name]?.dname) || t.name);
+    hs.push({ id:h.id, name:h.localized_name, img:img(h.img), attr:h.primary_attr, type:h.attack_type, roles:h.roles, basics, ult, talents, invoker });
+  }
+  const its = Object.entries(items)
+    .filter(([k, v]) => v.created && v.cost >= 1000 && v.dname && !/recipe/.test(k) && !ITEM_BLACKLIST.test(k))
+    .map(([k, v]) => ({ key:k, name:v.dname, cost:v.cost, img:img(v.img), boots:BOOTS.includes(k) }));
+  const d = { heroes:hs.sort((a, b) => a.name.localeCompare(b.name)), items:its };
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t:Date.now(), d })); } catch {}
+  return d;
+}
+
+const MELEE_ONLY = ['bfury'];
+const RANGED_ONLY = ['dragon_lance','hurricane_pike'];
+const FAMILIES = [
+  ['overwhelming_blink','swift_blink','arcane_blink'],
+  ['sange','yasha','kaya','sange_and_yasha','kaya_and_sange','yasha_and_kaya'],
+  ['lesser_crit','greater_crit'],
+  ['maelstrom','mjollnir','gungir'],
+  ['rod_of_atos','gungir'],
+  ['orchid','bloodthorn'],
+  ['diffusal_blade','disperser'],
+  ['invis_sword','silver_edge'],
+  ['mekansm','guardian_greaves'],
+  ['vladmir','helm_of_the_overlord'],
+  ['force_staff','hurricane_pike'],
+  ['dragon_lance','hurricane_pike'],
+  ['echo_sabre','harpoon'],
+  ['cyclone','wind_waker'],
+  ['crimson_guard','pipe'],
+  ['bloodstone','octarine_core'],
+  ['phylactery','angels_demise'],
+  ['witch_blade','devastator'],
+  ['basher','abyssal_blade'],
+  ['essence_distiller','eternal_shroud','holy_locket'],
+  ['ancient_janggo','boots_of_bearing'],
+];
+const TAGS = {
+  phys: 'moon_shard,power_treads,phase_boots,echo_sabre,bloodthorn,monkey_king_bar,rapier,radiance,butterfly,greater_crit,lesser_crit,basher,abyssal_blade,bfury,manta,dragon_lance,hurricane_pike,armlet,invis_sword,silver_edge,sange_and_yasha,yasha,satanic,mjollnir,maelstrom,skadi,desolator,mask_of_madness,diffusal_blade,disperser,harpoon,nullifier,black_king_bar,hydras_breath,specialists_array,assault,swift_blink,heavens_halberd',
+  mag: 'aether_lens,dagon,sheepstick,cyclone,wind_waker,ethereal_blade,octarine_core,kaya,kaya_and_sange,yasha_and_kaya,bloodstone,refresher,ultimate_scepter,veil_of_discord,rod_of_atos,gungir,witch_blade,devastator,phylactery,angels_demise,arcane_boots,orchid,meteor_hammer,travel_boots,arcane_blink,crellas_crozier,essence_distiller,mage_slayer',
+  tank: 'heart,black_king_bar,assault,shivas_guard,lotus_orb,crimson_guard,pipe,blade_mail,eternal_shroud,consecrated_wraps,heavens_halberd,overwhelming_blink,sange,kaya_and_sange,sange_and_yasha,aeon_disk,sphere,radiance,vladmir',
+  sup: 'mekansm,guardian_greaves,pipe,holy_locket,glimmer_cape,force_staff,solar_crest,spirit_vessel,ancient_janggo,boots_of_bearing,vladmir,wraith_pact,lotus_orb,arcane_boots,aether_lens,cyclone,sheepstick,rod_of_atos,helm_of_the_overlord,ultimate_scepter,aeon_disk',
+};
+for (const k in TAGS) TAGS[k] = TAGS[k].split(',');
+
+function heroProfile(h) {
+  const r = h.roles || [], p = [];
+  if (r.includes('Carry')) p.push('phys');
+  if (r.includes('Support')) p.push('sup');
+  if (r.includes('Durable') || r.includes('Initiator')) p.push('tank');
+  if (h.attr === 'int' || r.includes('Nuker')) p.push('mag');
+  return p;
+}
+
+function itemWeight(it, profile) {
+  const m = profile.filter(t => TAGS[t].includes(it.key)).length;
+  return m ? 1 + 3 * m : 0.3;
+}
+
+function weightedPick(pool, wf) {
+  const total = pool.reduce((s, i) => s + wf(i), 0);
+  let r = Math.random() * total;
+  for (const i of pool) { r -= wf(i); if (r <= 0) return i; }
+  return pool[pool.length - 1];
+}
+
+function rollItems(hero) {
+  const logic = $('itemMode').value === 'logic';
+  const profile = heroProfile(hero);
+  const wf = logic ? i => itemWeight(i, profile) : () => 1;
+  const conflicts = (a, b) => a === b || (a.boots && b.boots) || (logic && FAMILIES.some(f => f.includes(a.key) && f.includes(b.key)));
+  let pool = DATA.items;
+  if (logic) pool = pool.filter(i => !(hero.type === 'Melee' ? RANGED_ONLY : MELEE_ONLY).includes(i.key));
+  const res = [];
+  if ($('boots').checked) res.push(weightedPick(pool.filter(i => i.boots), wf));
+  while (res.length < 6) {
+    const free = pool.filter(i => !res.some(r => conflicts(i, r)));
+    if (!free.length) break;
+    res.push(weightedPick(free, wf));
+  }
+  return res;
+}
+
+function abilityCap(hero, idx, lvl) {
+  if (idx === 'ult') return lvl >= 18 ? 3 : lvl >= 12 ? 2 : lvl >= 6 ? 1 : 0;
+  return Math.min(hero.invoker ? 7 : 4, Math.floor((lvl + 1) / 2));
+}
+
+function rollBuild(hero, mode) {
+  const slots = [...hero.basics.map((_, i) => i), ...(hero.ult ? ['ult'] : [])];
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const lv = {}; slots.forEach(s => lv[s] = 0);
+    const tal = {};
+    const prio = shuffle(hero.basics.map((_, i) => i));
+    const steps = [];
+    let ok = true;
+    for (const L of SKILL_LEVELS) {
+      const abOpts = slots.filter(s => lv[s] < abilityCap(hero, s, L));
+      const talOpts = TALENT_LEVELS.map((tl, t) => t).filter(t => L >= TALENT_LEVELS[t] && tal[t] === undefined && hero.talents[t].length);
+      let choice = null;
+      if (mode === 'logic') {
+        if (abOpts.includes('ult')) choice = { s:'ult' };
+        else if (TALENT_LEVELS.includes(L) && talOpts.length) choice = { t:talOpts[0] };
+        else {
+          const b = prio.find(p => abOpts.includes(p));
+          if (b !== undefined) choice = { s:b };
+          else if (talOpts.length) choice = { t:talOpts[0] };
+        }
+      } else {
+        const opts = [...abOpts.map(s => ({ s })), ...talOpts.map(t => ({ t }))];
+        if (opts.length) choice = pick(opts);
+      }
+      if (!choice) { if (mode === 'chaos') { ok = false; break; } continue; }
+      if (choice.t !== undefined) {
+        const side = Math.floor(Math.random() * hero.talents[choice.t].length);
+        tal[choice.t] = { side, level:L };
+        steps.push({ L, t:choice.t, side });
+      } else {
+        lv[choice.s]++;
+        steps.push({ L, s:choice.s, n:lv[choice.s] });
+      }
+    }
+    const full = slots.every(s => s === 'ult' ? lv[s] === 3 : hero.invoker || lv[s] === 4) && Object.keys(tal).length === 4;
+    if (ok && (full || mode === 'logic' || attempt === 199)) return { steps, tal };
+  }
+}
+
+function rollHero() {
+  state.hero = pick(DATA.heroes);
+  state.items = rollItems(state.hero);
+  state.build = rollBuild(state.hero, $('mode').value);
+  render();
+}
+
+function render() {
+  const h = state.hero;
+  if (!h) { $('app').innerHTML = '<div class="card empty">Жми «Рандомнуть всё» или Space</div>'; return; }
+  const [an, ac] = ATTR[h.attr] || ['?', '#888'];
+  const slots = [...h.basics.map((b, i) => ({ id:i, ...b })), ...(h.ult ? [{ id:'ult', ...h.ult }] : [])];
+  const head = SKILL_LEVELS.map(l => `<th>${l}</th>`).join('');
+  const rows = slots.map(sl => `<tr><td class="ab"><img src="${sl.img}" onerror="this.style.visibility='hidden'">${sl.name}</td>${
+    SKILL_LEVELS.map(L => { const st = state.build.steps.find(x => x.L === L && x.s === sl.id); return st ? `<td class="cell on ${sl.id === 'ult' ? 'ult' : ''}">${st.n}</td>` : '<td class="cell"></td>'; }).join('')
+  }</tr>`).join('');
+  const talRow = `<tr><td class="ab">Таланты</td>${SKILL_LEVELS.map(L => { const st = state.build.steps.find(x => x.L === L && x.t !== undefined); return st ? '<td class="cell on tal">T</td>' : '<td class="cell"></td>'; }).join('')}</tr>`;
+  const talents = [3,2,1,0].map(t => {
+    const opts = h.talents[t], ch = state.build.tal[t];
+    return `<div class="trow"><div class="${ch && ch.side === 0 ? 'pick' : ''}">${opts[0] || ''}</div><div class="lvl">${TALENT_LEVELS[t]}</div><div class="${ch && ch.side === 1 ? 'pick' : ''}">${opts[1] || ''}</div></div>`;
+  }).join('');
+  const order = state.build.steps.map(st => {
+    if (st.t !== undefined) return `<div class="s" title="Талант ${TALENT_LEVELS[st.t]}"><div class="t">T${TALENT_LEVELS[st.t]}</div><span>${st.L}</span></div>`;
+    const sl = slots.find(x => x.id === st.s);
+    return `<div class="s" title="${sl.name}"><img src="${sl.img}"><span>${st.L}</span></div>`;
+  }).join('');
+  const total = state.items.reduce((s, i) => s + i.cost, 0);
+
+  $('app').innerHTML = `
+    <div class="card"><h2>Герой <button id="rerollHero">Перекрутить всё</button></h2>
+      <div class="hero"><img src="${h.img}"><div>
+        <div class="name">${h.name}</div>
+        <div class="meta"><span class="attr" style="background:${ac}">${an}</span>${h.type === 'Melee' ? 'Ближний бой' : 'Дальний бой'}</div>
+        <div class="meta">${(h.roles || []).join(' · ')}</div>
+      </div></div>
+    </div>
+    <div class="card"><h2>6 предметов · ${total.toLocaleString('ru')} золота <button id="rerollItems">Перекрутить предметы</button></h2>
+      <div class="items">${state.items.map(i => `<div class="item"><img src="${i.img}"><b>${i.name}</b>${i.cost}</div>`).join('')}</div>
+    </div>
+    <div class="card"><h2>Скиллбилд <button id="rerollSkills">Перекрутить скиллы</button></h2>
+      <div class="grid"><table><tr><th></th>${head}</tr>${rows}${talRow}</table></div>
+      <div class="order">${order}</div>
+      <div class="talents">${talents}</div>
+    </div>`;
+  $('rerollHero').onclick = rollHero;
+  $('rerollItems').onclick = () => { state.items = rollItems(h); render(); };
+  $('rerollSkills').onclick = () => { state.build = rollBuild(h, $('mode').value); render(); };
+}
+
+async function init(force) {
+  $('rollAll').disabled = true;
+  if (force || !DATA) $('app').innerHTML = '<div class="status">Загружаем данные…</div>';
+  try {
+    DATA = await loadData(force);
+    $('rollAll').disabled = false;
+    render();
+  } catch (e) {
+    $('app').innerHTML = `<div class="card empty">Не удалось загрузить данные OpenDota (${e.message}). Проверь интернет и нажми «Обновить данные».</div>`;
+  }
+}
+
+$('rollAll').onclick = rollHero;
+$('refresh').onclick = () => init(true);
+$('itemMode').onchange = () => { if (state.hero) { state.items = rollItems(state.hero); render(); } };
+$('mode').onchange = () => { if (state.hero) { state.build = rollBuild(state.hero, $('mode').value); render(); } };
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && DATA && !['INPUT','SELECT','BUTTON'].includes(document.activeElement.tagName)) { e.preventDefault(); rollHero(); }
+});
+init(false);
+</script>
+</body>
+</html>
