@@ -88,7 +88,16 @@
     <label><input type="checkbox" data-attr="agi" checked> Ловкость</label>
     <label><input type="checkbox" data-attr="int" checked> Интеллект</label>
     <label><input type="checkbox" data-attr="all" checked> Универсал</label>
-    <label>Роль: <select id="role"><option value="">Любая</option></select></label>
+    <label>Позиция:
+      <select id="pos">
+        <option value="">Любая</option>
+        <option value="1">1 — Керри</option>
+        <option value="2">2 — Мидер</option>
+        <option value="3">3 — Хардлейнер</option>
+        <option value="4">4 — Семи-саппорт</option>
+        <option value="5">5 — Хард-саппорт</option>
+      </select>
+    </label>
     <label>Атака:
       <select id="attack">
         <option value="">Любая</option>
@@ -105,7 +114,7 @@
 <script>
 const CDN = 'https://cdn.cloudflare.steamstatic.com';
 const API = 'https://api.opendota.com/api/constants/';
-const CACHE_KEY = 'shapito_data_v3';
+const CACHE_KEY = 'shapito_data_v4';
 const CACHE_TTL = 3 * 24 * 3600 * 1000;
 const SKILL_LEVELS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,20,25];
 const ABILITY_LEVELS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18];
@@ -151,7 +160,7 @@ async function loadData(force) {
     }
     const talents = [[],[],[],[]];
     for (const t of ha.talents) talents[t.level - 1]?.push(cleanTalent(abilities[t.name]?.dname) || t.name);
-    hs.push({ id:h.id, name:h.localized_name, img:img(h.img), attr:h.primary_attr, type:h.attack_type, roles:h.roles, basics, ult, talents, invoker });
+    hs.push({ id:h.id, key:h.name.replace('npc_dota_hero_', ''), name:h.localized_name, img:img(h.img), attr:h.primary_attr, type:h.attack_type, roles:h.roles, basics, ult, talents, invoker });
   }
   const its = Object.entries(items)
     .filter(([k, v]) => (BOOTS.includes(k) || (v.created && v.cost >= 1000)) && v.dname && !/recipe/.test(k) && !ITEM_BLACKLIST.test(k))
@@ -195,13 +204,12 @@ const TAGS = {
 };
 for (const k in TAGS) TAGS[k] = TAGS[k].split(',');
 
-function heroProfile(h) {
-  const r = h.roles || [], p = [];
-  if (r.includes('Carry')) p.push('phys');
-  if (r.includes('Support')) p.push('sup');
-  if (r.includes('Durable') || r.includes('Initiator')) p.push('tank');
-  if (h.attr === 'int' || r.includes('Nuker')) p.push('mag');
-  return p;
+function heroProfile(h, pos) {
+  if (pos === 1) return ['phys'];
+  if (pos === 2) return h.attr === 'int' ? ['mag'] : ['phys', 'mag'];
+  if (pos === 3) return (h.roles || []).includes('Carry') ? ['tank', 'phys'] : ['tank'];
+  if (pos === 4) return ['sup', 'mag'];
+  return ['sup'];
 }
 
 function itemWeight(it, profile) {
@@ -218,7 +226,7 @@ function weightedPick(pool, wf) {
 
 function rollItems(hero) {
   const logic = $('itemMode').value === 'logic';
-  const profile = heroProfile(hero);
+  const profile = heroProfile(hero, state.pos);
   const wf = logic ? i => itemWeight(i, profile) : () => 1;
   const conflicts = (a, b) => a === b || (a.boots && b.boots) || (logic && FAMILIES.some(f => f.includes(a.key) && f.includes(b.key)));
   let pool = DATA.items.filter(i => (i.key !== 'boots' || $('bareBoots').checked) && (i.key !== 'ultimate_scepter' || !$('aghs').checked));
@@ -267,25 +275,34 @@ function rollBuild(hero, mode) {
 
 const ROLES = { Carry:'Керри', Support:'Саппорт', Nuker:'Нюкер', Disabler:'Дизейблер', Durable:'Танк', Escape:'Эскейп', Pusher:'Пушер', Initiator:'Инициатор', Jungler:'Лесник' };
 
+const POS_NAMES = { 1:'Керри', 2:'Мидер', 3:'Хардлейнер', 4:'Семи-саппорт', 5:'Хард-саппорт' };
+const POSITIONS = {
+  1: 'antimage,bloodseeker,drow_ranger,juggernaut,morphling,nevermore,phantom_lancer,razor,sven,tiny,windrunner,faceless_void,skeleton_king,phantom_assassin,templar_assassin,luna,life_stealer,clinkz,huskar,weaver,spectre,ursa,gyrocopter,alchemist,lycan,lone_druid,chaos_knight,meepo,naga_siren,slark,medusa,troll_warlord,terrorblade,monkey_king,muerta,kez,arc_warden,sniper,ember_spirit,riki,dragon_knight,abyssal_underlord',
+  2: 'puck,storm_spirit,tiny,windrunner,zuus,kunkka,lina,tinker,sniper,necrolyte,queenofpain,death_prophet,pugna,templar_assassin,viper,dragon_knight,leshrac,huskar,batrider,invoker,obsidian_destroyer,meepo,ember_spirit,void_spirit,earth_spirit,arc_warden,monkey_king,pangolier,primal_beast,muerta,kez,nevermore,magnataur,broodmother,visage,medusa,pudge,razor,lone_druid,shredder,mirana',
+  3: 'axe,bristleback,centaur,dark_seer,doom_bringer,enigma,beastmaster,brewmaster,legion_commander,mars,night_stalker,sand_king,slardar,tidehunter,abyssal_underlord,shredder,razor,viper,necrolyte,death_prophet,dragon_knight,magnataur,primal_beast,pangolier,lycan,batrider,windrunner,venomancer,visage,broodmother,dawnbreaker,kunkka,phoenix,spirit_breaker,abaddon,earthshaker,pudge,furion,largo,marci,chaos_knight,huskar,wisp',
+  4: 'earthshaker,mirana,pudge,tiny,vengefulspirit,windrunner,shadow_shaman,lion,tusk,rubick,nyx_assassin,spirit_breaker,earth_spirit,bounty_hunter,dark_willow,hoodwink,snapfire,marci,grimstroke,phoenix,skywrath_mage,techies,furion,riki,weaver,ringmaster,pangolier,muerta,elder_titan,venomancer,jakiro,keeper_of_the_light,treant,undying,enchantress,ogre_magi,pugna,rattletrap,sand_king,zuus,lina,batrider,dazzle,bane,silencer,shadow_demon,winter_wyvern,largo,clinkz',
+  5: 'bane,crystal_maiden,lich,lion,shadow_shaman,witch_doctor,warlock,dazzle,jakiro,chen,ancient_apparition,shadow_demon,ogre_magi,treant,undying,disruptor,keeper_of_the_light,wisp,oracle,winter_wyvern,silencer,abaddon,omniknight,vengefulspirit,enchantress,elder_titan,grimstroke,snapfire,ringmaster,dark_willow,rubick,pugna,venomancer,techies,largo,tusk,phoenix,lich',
+};
+for (const k in POSITIONS) POSITIONS[k] = POSITIONS[k].split(',');
+const heroPositions = h => [1,2,3,4,5].filter(p => POSITIONS[p].includes(h.key));
+
 function heroPool() {
   const attrs = [...document.querySelectorAll('[data-attr]')].filter(c => c.checked).map(c => c.dataset.attr);
-  const role = $('role').value, attack = $('attack').value;
-  return DATA.heroes.filter(h => attrs.includes(h.attr) && (!role || (h.roles || []).includes(role)) && (!attack || h.type === attack));
+  const pos = +$('pos').value, attack = $('attack').value;
+  return DATA.heroes.filter(h => attrs.includes(h.attr) && (!pos || heroPositions(h).includes(pos)) && (!attack || h.type === attack));
 }
 
 function updatePool() {
   $('poolCount').textContent = `Героев в пуле: ${heroPool().length}`;
-  const f = { attrs:[...document.querySelectorAll('[data-attr]')].filter(c => !c.checked).map(c => c.dataset.attr), role:$('role').value, attack:$('attack').value };
+  const f = { attrs:[...document.querySelectorAll('[data-attr]')].filter(c => !c.checked).map(c => c.dataset.attr), pos:$('pos').value, attack:$('attack').value };
   localStorage.setItem('shapito_filters', JSON.stringify(f));
 }
 
 function initFilters() {
-  const roles = [...new Set(DATA.heroes.flatMap(h => h.roles || []))].sort();
-  $('role').innerHTML = '<option value="">Любая</option>' + roles.map(r => `<option value="${r}">${ROLES[r] || r}</option>`).join('');
   try {
     const f = JSON.parse(localStorage.getItem('shapito_filters')) || {};
     document.querySelectorAll('[data-attr]').forEach(c => c.checked = !(f.attrs || []).includes(c.dataset.attr));
-    if (roles.includes(f.role)) $('role').value = f.role;
+    if (f.pos) $('pos').value = f.pos;
     if (f.attack) $('attack').value = f.attack;
   } catch {}
   $('filters').querySelectorAll('input, select').forEach(el => el.onchange = updatePool);
@@ -296,6 +313,7 @@ function rollHero() {
   const pool = heroPool();
   if (!pool.length) { $('app').innerHTML = '<div class="card empty">Под фильтры не подходит ни один герой</div>'; return; }
   state.hero = pick(pool);
+  state.pos = +$('pos').value || pick(heroPositions(state.hero).length ? heroPositions(state.hero) : [1,2,3,4,5]);
   state.items = rollItems(state.hero);
   state.build = rollBuild(state.hero, $('mode').value);
   render();
@@ -329,6 +347,7 @@ function render() {
       <div class="hero"><img src="${h.img}"><div>
         <div class="name">${h.name}</div>
         <div class="meta"><span class="attr" style="background:${ac}">${an}</span>${h.type === 'Melee' ? 'Ближний бой' : 'Дальний бой'}</div>
+        <div class="meta" style="color:var(--acc2);font-weight:700">Позиция ${state.pos} — ${POS_NAMES[state.pos]}</div>
         <div class="meta">${(h.roles || []).map(r => ROLES[r] || r).join(' · ')}</div>
       </div></div>
     </div>
