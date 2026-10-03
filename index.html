@@ -82,6 +82,22 @@
     <button id="refresh" title="Перекачать данные из OpenDota">↻ Обновить данные</button>
   </div>
 
+  <div class="bar" id="filters">
+    <label><input type="checkbox" data-attr="str" checked> Сила</label>
+    <label><input type="checkbox" data-attr="agi" checked> Ловкость</label>
+    <label><input type="checkbox" data-attr="int" checked> Интеллект</label>
+    <label><input type="checkbox" data-attr="all" checked> Универсал</label>
+    <label>Роль: <select id="role"><option value="">Любая</option></select></label>
+    <label>Атака:
+      <select id="attack">
+        <option value="">Любая</option>
+        <option value="Melee">Ближний бой</option>
+        <option value="Ranged">Дальний бой</option>
+      </select>
+    </label>
+    <span id="poolCount" style="color:var(--muted);font-size:13px"></span>
+  </div>
+
   <div id="app"><div class="status">Загружаем данные…</div></div>
 </div>
 
@@ -247,8 +263,37 @@ function rollBuild(hero, mode) {
   }
 }
 
+const ROLES = { Carry:'Керри', Support:'Саппорт', Nuker:'Нюкер', Disabler:'Дизейблер', Durable:'Танк', Escape:'Эскейп', Pusher:'Пушер', Initiator:'Инициатор', Jungler:'Лесник' };
+
+function heroPool() {
+  const attrs = [...document.querySelectorAll('[data-attr]')].filter(c => c.checked).map(c => c.dataset.attr);
+  const role = $('role').value, attack = $('attack').value;
+  return DATA.heroes.filter(h => attrs.includes(h.attr) && (!role || (h.roles || []).includes(role)) && (!attack || h.type === attack));
+}
+
+function updatePool() {
+  $('poolCount').textContent = `Героев в пуле: ${heroPool().length}`;
+  const f = { attrs:[...document.querySelectorAll('[data-attr]')].filter(c => !c.checked).map(c => c.dataset.attr), role:$('role').value, attack:$('attack').value };
+  localStorage.setItem('shapito_filters', JSON.stringify(f));
+}
+
+function initFilters() {
+  const roles = [...new Set(DATA.heroes.flatMap(h => h.roles || []))].sort();
+  $('role').innerHTML = '<option value="">Любая</option>' + roles.map(r => `<option value="${r}">${ROLES[r] || r}</option>`).join('');
+  try {
+    const f = JSON.parse(localStorage.getItem('shapito_filters')) || {};
+    document.querySelectorAll('[data-attr]').forEach(c => c.checked = !(f.attrs || []).includes(c.dataset.attr));
+    if (roles.includes(f.role)) $('role').value = f.role;
+    if (f.attack) $('attack').value = f.attack;
+  } catch {}
+  $('filters').querySelectorAll('input, select').forEach(el => el.onchange = updatePool);
+  updatePool();
+}
+
 function rollHero() {
-  state.hero = pick(DATA.heroes);
+  const pool = heroPool();
+  if (!pool.length) { $('app').innerHTML = '<div class="card empty">Под фильтры не подходит ни один герой</div>'; return; }
+  state.hero = pick(pool);
   state.items = rollItems(state.hero);
   state.build = rollBuild(state.hero, $('mode').value);
   render();
@@ -280,7 +325,7 @@ function render() {
       <div class="hero"><img src="${h.img}"><div>
         <div class="name">${h.name}</div>
         <div class="meta"><span class="attr" style="background:${ac}">${an}</span>${h.type === 'Melee' ? 'Ближний бой' : 'Дальний бой'}</div>
-        <div class="meta">${(h.roles || []).join(' · ')}</div>
+        <div class="meta">${(h.roles || []).map(r => ROLES[r] || r).join(' · ')}</div>
       </div></div>
     </div>
     <div class="card"><h2>6 предметов · ${total.toLocaleString('ru')} золота <button id="rerollItems">Перекрутить предметы</button></h2>
@@ -301,6 +346,7 @@ async function init(force) {
   if (force || !DATA) $('app').innerHTML = '<div class="status">Загружаем данные…</div>';
   try {
     DATA = await loadData(force);
+    initFilters();
     $('rollAll').disabled = false;
     render();
   } catch (e) {
